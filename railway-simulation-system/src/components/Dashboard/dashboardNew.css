@@ -1,0 +1,37 @@
+/* App.css */
+.platform {
+    border: 1px solid #ccc;
+    padding: 10px;
+    margin: 10px;
+    position: relative;
+  }
+  
+  .train {
+    animation: arrive 1s ease-in-out;
+  }
+  
+  .train.departed {
+    animation: depart 1s ease-in-out;
+  }
+  
+  @keyframes arrive {
+    from {
+      opacity: 0;
+      transform: translateX(-100%);
+    }
+    to {
+      opacity: 1;
+      transform: translateX(0);
+    }
+  }
+  
+  @keyframes depart {
+    from {
+      opacity: 1;
+      transform: translateX(0);
+    }
+    to {
+      opacity: 0;
+      transform: translateX(100%);
+    }
+  }
