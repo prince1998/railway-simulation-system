@@ -1,14 +1,10 @@
 import "./App.css";
-import Dashboard from "./components/Dashboard/Dashboard";
-// import DashboardNew from "./components/Dashboard/DashboardNew";
-import UploadCSV from "./components/UploadCSV/UploadCSV";
-// import TrainPlatformSimulation from "./components/Dashboard/TrainPlatformSimulation";
+import Dashboard from "./Pages/Dashboard/Dashboard";
 
 function App() {
   return (
     <>
       <Dashboard />
-      {/* <TrainPlatformSimulation /> */}
     </>
   );
 }
