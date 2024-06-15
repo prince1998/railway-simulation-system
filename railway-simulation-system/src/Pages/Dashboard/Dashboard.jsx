@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import Box from "@mui/material/Box";
+import TextField from "@mui/material/TextField";
 
 import { motion } from "framer-motion";
 import UploadCSV from "../../components/UploadCSV/UploadCSV";
@@ -16,35 +17,17 @@ import "./dashboard.css";
 
 function Dashboard() {
   const [showSimulation, setShowSimulation] = useState("none");
-  const [trainsArrivedAtPlatform, setTrainsArrivedAtPlatform] = useState({
-    P2: "",
-    P3: "",
-    P4: "",
-    P5: "",
-    P6: "",
-    P7: "",
-    P8: "",
-    P9: "",
-    P10: "",
-    P11: "",
-    P12: "",
-    P13: "",
-    P14: "",
-    P15: "",
-    P16: "",
-    P17: "",
-    P18: "",
-    P19: "",
-    P20: "",
-  });
+  const [trainsArrivedAtPlatform, setTrainsArrivedAtPlatform] = useState({});
   const [CSVData, setCSVData] = useState({});
   const [trainNumberToUpdateDelay, setTrainNumberToUpdateDelay] = useState();
+  const [trainsYetToArrive, setTrainsYetToArrive] = useState([]);
+
+  const [stationName, setStationName] = useState("");
   const [delayTimeToUpdate, setDelayTimeToUpdate] = useState();
   const [showUpdateDelayModal, setShowUpdateDelayModal] = useState(false);
-
+  const [maxPlatforms, setMaxPlatforms] = useState(0);
   const handleUpdateDelayModalClose = () => setShowUpdateDelayModal(false);
   const handleUpdateDelayModalShow = () => setShowUpdateDelayModal(true);
-
   const handleTrainNumberToUpdateDelay = (e) => {
     setTrainNumberToUpdateDelay(e.target.value);
   };
@@ -52,6 +35,16 @@ function Dashboard() {
   const handleDelayTimeToUpdate = (e) => {
     setDelayTimeToUpdate(e.target.value);
   };
+
+  const handleStationName = (e) => {
+    setStationName(e.target.value);
+  };
+
+  const handlePlatformInput = (e) => {
+    setMaxPlatforms(e.target.value);
+  };
+
+  // const ref = useRef(3);
 
   const boxStyle = {
     position: "absolute",
@@ -108,38 +101,36 @@ function Dashboard() {
   );
 
   useEffect(() => {
-    updateSimulation();
+    console.log("csv data = ", CSVData);
   }, [CSVData]);
 
   const startSimulation = () => {
-    setShowSimulation("block");
+    // CSVData.data.sort((a, b) => {
+    //   // Convert time strings to date objects
+    //   const timeA = new Date(`1970/01/01 ${a[0]}:00`);
+    //   const timeB = new Date(`1970/01/01 ${b[0]}:00`);
 
+    //   // Compare the date objects
+    //   return timeA - timeB;
+    // });
+
+    // setCSVData({ ...CSVData });
+    setShowSimulation("block");
+    let obj = {};
+    for (let platform = 2; i <= maxPlatforms; platform++) {
+      obj[`P${i}`] = "";
+    }
+    setTrainsArrivedAtPlatform(obj);
     updateSimulation();
   };
 
   const updateSimulation = () => {
     console.log("update simulation called");
-    setTrainsArrivedAtPlatform({
-      P2: "",
-      P3: "",
-      P4: "",
-      P5: "",
-      P6: "",
-      P7: "",
-      P8: "",
-      P9: "",
-      P10: "",
-      P11: "",
-      P12: "",
-      P13: "",
-      P14: "",
-      P15: "",
-      P16: "",
-      P17: "",
-      P18: "",
-      P19: "",
-      P20: "",
-    });
+    let trainsArrivedAtPlatformLocal = {};
+    for (let platform = 2; i <= maxPlatforms; platform++) {
+      trainsArrivedAtPlatformLocal[`P${i}`] = "";
+    }
+
     console.log("update simulation called");
     let currentDate = new Date();
     let currentHour;
@@ -157,23 +148,23 @@ function Dashboard() {
     }
 
     let currentTime = currentHour + ":" + currentMinutes;
-
     if (CSVData.data != null && CSVData.data.length > 0) {
       CSVData.data.forEach((data, index) => {
         if (index != 0) {
           if (data[1] <= currentTime && currentTime < data[2]) {
-            for (const platform in trainsArrivedAtPlatform) {
-              if (trainsArrivedAtPlatform[platform].length < 1) {
-                setTrainsArrivedAtPlatform((trainArrivedPlatform) => ({
-                  ...trainArrivedPlatform,
+            for (const platform in trainsArrivedAtPlatformLocal) {
+              if (trainsArrivedAtPlatformLocal[platform].length < 1) {
+                trainsArrivedAtPlatformLocal = {
+                  ...trainsArrivedAtPlatformLocal,
                   [platform]: data[0],
-                }));
+                };
                 break;
               }
             }
           }
         }
       });
+      setTrainsArrivedAtPlatform(trainsArrivedAtPlatformLocal);
     }
   };
 
@@ -196,7 +187,7 @@ function Dashboard() {
     setCSVData(data);
   };
 
-  const lines = Array.from({ length: 19 }, (_, i) => i * 50);
+  const lines = Array.from({ length: maxPlatforms - 1 }, (_, i) => i * 50);
 
   return (
     <>
@@ -282,6 +273,31 @@ function Dashboard() {
               <section className="element">
                 <UploadCSV sendCSVDataToParent={handleCSVData} />
               </section>
+
+              <div className="title" style={{ marginTop: "20px" }}>
+                Enter Station Name
+              </div>
+
+              <TextField
+                className="title"
+                id="standard-basic"
+                variant="standard"
+                onChange={handleStationName}
+                sx={{ input: { color: "white" } }}
+              />
+
+              <div className="title" style={{ marginTop: "20px" }}>
+                Enter number of platforms between 2 and 20
+              </div>
+
+              <TextField
+                className="title"
+                id="standard-basic"
+                variant="standard"
+                type="number"
+                onChange={handlePlatformInput}
+                sx={{ input: { color: "white" } }}
+              />
             </div>
           </section>
         </div>
@@ -318,6 +334,7 @@ function Dashboard() {
 
         <div id="simulation_card" className="card simulation-card">
           <section className="tab">
+            {/* <div className="title">Simulation of {stationName}</div> */}
             <div className="title">Simulation</div>
             <div className="content">
               <section className="element">
