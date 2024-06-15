@@ -115,10 +115,18 @@ function Dashboard() {
     // });
 
     // setCSVData({ ...CSVData });
+
+    const sortedArray = [...CSVData.data].sort((a, b) => {
+      const timeA = new Date(`1970/01/01 ${a[0]}:00`);
+      const timeB = new Date(`1970/01/01 ${b[0]}:00`);
+      return timeA - timeB;
+    });
+    setCSVData(sortedArray);
+
     setShowSimulation("block");
     let obj = {};
-    for (let platform = 2; i <= maxPlatforms; platform++) {
-      obj[`P${i}`] = "";
+    for (let platform = 2; platform <= maxPlatforms; platform++) {
+      obj[`P${platform}`] = "";
     }
     setTrainsArrivedAtPlatform(obj);
     updateSimulation();
@@ -127,8 +135,8 @@ function Dashboard() {
   const updateSimulation = () => {
     console.log("update simulation called");
     let trainsArrivedAtPlatformLocal = {};
-    for (let platform = 2; i <= maxPlatforms; platform++) {
-      trainsArrivedAtPlatformLocal[`P${i}`] = "";
+    for (let platform = 2; platform <= maxPlatforms; platform++) {
+      trainsArrivedAtPlatformLocal[`P${platform}`] = "";
     }
 
     console.log("update simulation called");
