@@ -19,9 +19,10 @@ function Dashboard() {
   const [showSimulation, setShowSimulation] = useState("none");
   const [trainsArrivedAtPlatform, setTrainsArrivedAtPlatform] = useState({});
   const [CSVData, setCSVData] = useState({});
+  const [scheduledTrains, setScheduledTrains] = useState([]);
   const [trainNumberToUpdateDelay, setTrainNumberToUpdateDelay] = useState();
   const [trainsYetToArrive, setTrainsYetToArrive] = useState([]);
-
+  const [earliestArrivalTime, setEarliestArrivalTime] = useState("");
   const [stationName, setStationName] = useState("");
   const [delayTimeToUpdate, setDelayTimeToUpdate] = useState();
   const [showUpdateDelayModal, setShowUpdateDelayModal] = useState(false);
@@ -102,26 +103,220 @@ function Dashboard() {
 
   useEffect(() => {
     console.log("csv data = ", CSVData);
+    if (CSVData && CSVData.data && CSVData.data.length > 0) {
+      console.log("setting earliest arrival time", CSVData.data[1][1]);
+      const [hours, minutes] = CSVData.data[1][1].split(":").map(Number);
+
+      console.log("hours = ", hours, "minutes = ", minutes);
+      // Create a Date object for the epoch start date (January 1, 1970)
+      const epochStart = new Date(1970, 0, 1, hours, minutes);
+
+      // Calculate the epoch time in seconds
+      const epochTime = Math.floor(epochStart.getTime() / 60000);
+      console.log("epoch time = ", epochStart);
+      setEarliestArrivalTime(epochTime);
+    }
   }, [CSVData]);
 
+  useEffect(() => {
+    console.log("earliest arrival time = ", earliestArrivalTime);
+  }, [earliestArrivalTime]);
+
+  var trainHeap = [];
+  const swap = (i, j) => {
+    [trainHeap[i], trainHeap[j]] = [trainHeap[j], trainHeap[i]];
+  };
+
+  const parent = (i) => {
+    return Math.floor((i - 1) / 2);
+  };
+
+  const leftChild = (i) => {
+    return 2 * i + 1;
+  };
+
+  const rightChild = (i) => {
+    return 2 * i + 2;
+  };
+
+  const bubbleUp = (index) => {
+    let currentIndex = index;
+    const currentValue = trainHeap[currentIndex];
+    let parentIndex = parent(currentIndex);
+
+    while (
+      currentIndex > 0 &&
+      (trainHeap[parentIndex].priority > currentValue.priority ||
+        (trainHeap[parentIndex].priority === currentValue.priority &&
+          trainHeap[parentIndex].arrival > currentValue.arrival))
+    ) {
+      swap(currentIndex, parentIndex);
+      currentIndex = parentIndex;
+      parentIndex = parent(currentIndex);
+    }
+  };
+
+  const bubbleDown = (index) => {
+    let currentIndex = index;
+    const currentValue = trainHeap[currentIndex];
+    let leftChildIndex = leftChild(currentIndex);
+    let rightChildIndex = rightChild(currentIndex);
+    let minIndex = currentIndex;
+
+    if (
+      leftChildIndex < trainHeap.length &&
+      (trainHeap[leftChildIndex].priority < currentValue.priority ||
+        (trainHeap[leftChildIndex].priority === currentValue.priority &&
+          trainHeap[leftChildIndex].arrival < currentValue.arrival))
+    ) {
+      minIndex = leftChildIndex;
+    }
+
+    if (
+      rightChildIndex < trainHeap.length &&
+      (trainHeap[rightChildIndex].priority < trainHeap[minIndex].priority ||
+        (trainHeap[rightChildIndex].priority === trainHeap[minIndex].priority &&
+          trainHeap[rightChildIndex].arrival < trainHeap[minIndex].arrival))
+    ) {
+      minIndex = rightChildIndex;
+    }
+
+    if (minIndex !== currentIndex) {
+      swap(currentIndex, minIndex);
+      bubbleDown(minIndex);
+    }
+  };
+
+  const insertValue = (value) => {
+    trainHeap.push(value);
+    bubbleUp(trainHeap.length - 1);
+  };
+
+  const extractMin = () => {
+    if (trainHeap.length === 0) return null;
+    if (trainHeap.length === 1) return trainHeap.pop();
+
+    const minValue = trainHeap[0];
+    trainHeap[0] = trainHeap.pop();
+    bubbleDown(0);
+
+    return minValue;
+  };
+
+  const peek = () => {
+    return trainHeap[0];
+  };
+
+  const size = () => {
+    return trainHeap.length;
+  };
+
+  // Main scheduling function
+  function scheduleTrains(platforms, trainsData) {
+    // const [scheduledTrains, setScheduledTrains] = useState([]);
+    let scheduledTrains = [];
+    // let [waitingTrains,setWaitingTrains] = new MinHeap();
+    // const [waitingTrains, setWaitingTrains] = useState([]);
+    let waitingTrainsLocal = [];
+    // const [availablePlatforms, setAvailablePlatforms] = useState(
+    //   Array(0).fill(null)
+    // );
+
+    let availablePlatformsLocal = Array(0).fill(null);
+    let platformArrLocal = Array.from({ length: platformNumber }, (e, i) => i);
+
+    // const [platformArr, setPlatformArr] = useState(
+    //   Array.from({ length: platforms }, (e, i) => i)
+    // );
+
+    // Convert train data to Train instances
+    let trains = trainsData.map((train) => new Train(...train));
+
+    // Iterate over each minute of the day
+
+    // for (let time = 0; time < 1439; time++) {
+    // Free up platforms if departure time has passed
+    // availablePlatforms = availablePlatforms.filter(
+    //   (train) => train === null || train.departure > time
+    // );
+    let time = 0;
+    setInterval(() => {
+      while (time <= 1439) {
+        let newAvailablePlatforms = Array(0);
+
+        for (let i = 0; i < availablePlatformsLocal.length; i++) {
+          if (
+            availablePlatformsLocal[i] === null ||
+            availablePlatformsLocal[i].departure > time
+          ) {
+            newAvailablePlatforms.push(availablePlatformsLocal[i]);
+          } else {
+            platformArrLocal.push(availablePlatformsLocal[i].platform - 1);
+          }
+        }
+        availablePlatformsLocal = newAvailablePlatforms;
+
+        // // Schedule waiting trains if platforms are available
+        // while (
+        //   waitingTrains.size() > 0 &&
+        //   newAvailablePlatforms.length < platforms
+        // ) {
+        //   const nextTrain = waitingTrains.extractMin();
+        //   nextTrain.waitingTime += time - nextTrain.arrival;
+        //   nextTrain.platform = platformArr.shift() + 1; // Assign platform number
+        //   availablePlatformsLocal.push(nextTrain);
+        //   scheduledTrains.push(nextTrain);
+        // }
+
+        // Schedule waiting trains if platforms are available
+        while (size() > 0 && availablePlatformsLocal.length < platforms) {
+          const nextTrain = extractMin();
+          nextTrain.waitingTime += time - nextTrain.arrival;
+          nextTrain.platform = platformArrLocal.shift() + 1; // Assign platform number
+          availablePlatformsLocal.push(nextTrain);
+          scheduledTrains.push(nextTrain);
+        }
+
+        // Schedule arriving trains or add them to the waiting list
+        while (trains.length > 0 && trains[0].arrival - 1 <= time) {
+          const arrivingTrain = trains.shift();
+          insertValue(arrivingTrain);
+        }
+        // }
+        // setTrainsArrivedAtPlatform({...sc})
+      }
+    }, 5000);
+
+    // return scheduledTrains.map((train) => ({
+    //   number: train.number,
+    //   arrival: train.arrival,
+    //   departure: train.departure,
+    //   priority: train.priority,
+    //   waitingTime: train.waitingTime,
+    //   platform: train.platform, // Include platform in the result
+    // }));
+  }
+
   const startSimulation = () => {
-    // CSVData.data.sort((a, b) => {
-    //   // Convert time strings to date objects
-    //   const timeA = new Date(`1970/01/01 ${a[0]}:00`);
-    //   const timeB = new Date(`1970/01/01 ${b[0]}:00`);
+    CSVData.data.sort((a, b) => {
+      // Convert time strings to date objects
+      const timeA = new Date(`1970/01/01 ${a[1]}`);
+      const timeB = new Date(`1970/01/01 ${b[1]}`);
 
-    //   // Compare the date objects
-    //   return timeA - timeB;
-    // });
-
-    // setCSVData({ ...CSVData });
-
-    const sortedArray = [...CSVData.data].sort((a, b) => {
-      const timeA = new Date(`1970/01/01 ${a[0]}:00`);
-      const timeB = new Date(`1970/01/01 ${b[0]}:00`);
+      // Compare the date objects
       return timeA - timeB;
     });
-    setCSVData(sortedArray);
+
+    setCSVData({ ...CSVData });
+
+    // const sortedArray = [...CSVData.data].sort((a, b) => {
+    //   const timeA = new Date(`1970/01/01 ${a[1]}:00`);
+    //   const timeB = new Date(`1970/01/01 ${b[1]}:00`);
+    //   return timeA - timeB;
+    // });
+    // console.log("sorted array = ", sortedArray);
+
+    // setCSVData(sortedArray);
 
     setShowSimulation("block");
     let obj = {};
@@ -132,8 +327,11 @@ function Dashboard() {
     updateSimulation();
   };
 
+  useEffect(() => {
+    console.log("earliest arrival time = ", earliestArrivalTime);
+  }, [earliestArrivalTime]);
+
   const updateSimulation = () => {
-    console.log("update simulation called");
     let trainsArrivedAtPlatformLocal = {};
     for (let platform = 2; platform <= maxPlatforms; platform++) {
       trainsArrivedAtPlatformLocal[`P${platform}`] = "";
@@ -156,25 +354,73 @@ function Dashboard() {
     }
 
     let currentTime = currentHour + ":" + currentMinutes;
-    if (CSVData.data != null && CSVData.data.length > 0) {
-      CSVData.data.forEach((data, index) => {
-        if (index != 0) {
-          if (data[1] <= currentTime && currentTime < data[2]) {
-            for (const platform in trainsArrivedAtPlatformLocal) {
-              if (trainsArrivedAtPlatformLocal[platform].length < 1) {
-                trainsArrivedAtPlatformLocal = {
-                  ...trainsArrivedAtPlatformLocal,
-                  [platform]: data[0],
-                };
-                break;
-              }
-            }
+
+    let scheduledTrains = [];
+    let waitingTrainsLocal = [];
+    let availablePlatformsLocal = Array(0).fill(null);
+    let platformArrLocal = Array.from({ length: maxPlatforms }, (e, i) => i);
+
+    let trains = trainsData.map((train) => new Train(...train));
+    let time = 0;
+    setInterval(() => {
+      while (time <= 1439) {
+        let newAvailablePlatforms = Array(0);
+        for (let i = 0; i < availablePlatformsLocal.length; i++) {
+          if (
+            availablePlatformsLocal[i] === null ||
+            availablePlatformsLocal[i].departure > time
+          ) {
+            newAvailablePlatforms.push(availablePlatformsLocal[i]);
+          } else {
+            platformArrLocal.push(availablePlatformsLocal[i].platform - 1);
           }
         }
-      });
-      setTrainsArrivedAtPlatform(trainsArrivedAtPlatformLocal);
-    }
+        availablePlatformsLocal = newAvailablePlatforms;
+        while (size() > 0 && availablePlatformsLocal.length < maxPlatforms) {
+          const nextTrain = extractMin();
+          nextTrain.waitingTime += time - nextTrain.arrival;
+          nextTrain.platform = platformArrLocal.shift() + 1; // Assign platform number
+          availablePlatformsLocal.push(nextTrain);
+          scheduledTrains.push(nextTrain);
+        }
+
+        // Schedule arriving trains or add them to the waiting list
+        while (trains.length > 0 && trains[0].arrival - 1 <= time) {
+          const arrivingTrain = trains.shift();
+          insertValue(arrivingTrain);
+        }
+      }
+    }, 5000);
+
+    setTrainsArrivedAtPlatform({ ...scheduledTrains });
+
+    // if (CSVData.data != null && CSVData.data.length > 0) {
+    //   CSVData.data.forEach((data, index) => {
+    //     if (index != 0) {
+    //       if (data[1] <= currentTime && currentTime < data[2]) {
+    //         for (const platform in trainsArrivedAtPlatformLocal) {
+    //           if (trainsArrivedAtPlatformLocal[platform].length < 1) {
+    //             trainsArrivedAtPlatformLocal = {
+    //               ...trainsArrivedAtPlatformLocal,
+    //               [platform]: data[0],
+    //             };
+    //             break;
+    //           }
+    //         }
+    //       }
+    //     }
+    //   });
+    //   setTrainsArrivedAtPlatform(trainsArrivedAtPlatformLocal);
+    // }
   };
+
+  useEffect(() => {
+    console.log("scheduled train");
+  }, [scheduledTrains]);
+
+  useEffect(() => {
+    console.log("trains arrived at platform = ", trainsArrivedAtPlatform);
+  }, [trainsArrivedAtPlatform]);
 
   const stopSimulation = () => {
     setShowSimulation("none");
@@ -191,8 +437,20 @@ function Dashboard() {
     handleUpdateDelayModalClose();
   };
 
-  const handleCSVData = (data) => {
-    setCSVData(data);
+  const handleCSVData = (dataOutput) => {
+    // let CSVDataLocal = dataOutput.data.sort((a, b) => {
+    //   if (a[1] != "Arrival Time" && b[1] != "Arrival Time") {
+    //     // Convert time strings to date objects
+    //     const timeA = new Date(`1970/01/01 ${a[1]}:00`);
+    //     const timeB = new Date(`1970/01/01 ${b[1]}:00`);
+
+    //     // Compare the date objects
+    //     return timeA - timeB;
+    //   }
+    // });
+
+    // setCSVData(CSVDataLocal);
+    setCSVData(dataOutput);
   };
 
   const lines = Array.from({ length: maxPlatforms - 1 }, (_, i) => i * 50);
@@ -260,7 +518,6 @@ function Dashboard() {
           </Button>
         </Box>
       </Modal>
-
       <div id="bg"></div>
       <header>
         <div id="title_card" className="card">
@@ -272,7 +529,6 @@ function Dashboard() {
           <span id="description"></span>
         </div>
       </header>
-
       <main>
         <div id="simulation_card" className="card">
           <section className="tab">
