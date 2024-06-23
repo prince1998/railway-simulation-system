@@ -434,7 +434,7 @@ function Dashboard() {
       if (time > getMinute(CSVData.data[CSVData.data.length - 1][2])) {
         clearInterval(interval);
       }
-    }, 1000);
+    }, 5000);
     // console.log("scheduled trains = ", scheduledTrains);
 
     // setTrainsArrivedAtPlatform({ ...scheduledTrains });
