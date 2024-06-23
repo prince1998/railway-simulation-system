@@ -24,6 +24,7 @@ function Dashboard() {
   const [trainsYetToArrive, setTrainsYetToArrive] = useState([]);
   const [earliestArrivalTime, setEarliestArrivalTime] = useState("");
   const [stationName, setStationName] = useState("");
+  const [currentSimulationTime, setCurrentSimulationTime] = useState("");
   const [delayTimeToUpdate, setDelayTimeToUpdate] = useState();
   const [showUpdateDelayModal, setShowUpdateDelayModal] = useState(false);
   const [maxPlatforms, setMaxPlatforms] = useState(0);
@@ -31,6 +32,11 @@ function Dashboard() {
   const handleUpdateDelayModalShow = () => setShowUpdateDelayModal(true);
   const handleTrainNumberToUpdateDelay = (e) => {
     setTrainNumberToUpdateDelay(e.target.value);
+  };
+
+  const addMinutesToTime = (time, minutesToAdd) => {
+    // Split the input time into hours and minutes
+    // setCurrentSimulationTime(`${newHoursStr}:${newMinutesStr}`);
   };
 
   const handleDelayTimeToUpdate = (e) => {
@@ -123,6 +129,7 @@ function Dashboard() {
     const [hours, minutes] = time.split(":").map(Number);
     const epochStart = new Date(1970, 0, 1, hours, minutes);
     const epochTime = Math.floor(epochStart.getTime() / 60000);
+    console.log("epoc time = ", epochTime);
     return epochTime;
   };
 
@@ -288,25 +295,26 @@ function Dashboard() {
 
   const startSimulation = () => {
     // console.log("csv data = ", CSVData.data);
-    // CSVData.data.sort((a, b) => {
-    //   // Convert time strings to date objects
-    //   const timeA = new Date(`1970/01/01 ${a[1]}`);
-    //   const timeB = new Date(`1970/01/01 ${b[1]}`);
+    CSVData.data.sort((a, b) => {
+      // Convert time strings to date objects
+      const timeA = new Date(`1970/01/01 ${a[1]}`);
+      const timeB = new Date(`1970/01/01 ${b[1]}`);
 
-    //   // Compare the date objects
-    //   return timeA - timeB;
-    // });
+      // Compare the date objects
+      return timeA - timeB;
+    });
 
-    // setCSVData({ ...CSVData });
+    setCSVData({ ...CSVData });
+    setCurrentSimulationTime(CSVData.data[0][1]);
 
     setShowSimulation("block");
     let obj = {};
-    // for (let platform = 2; platform <= maxPlatforms; platform++) {
-    //   obj[`P${platform}`] = "";
-    // }
-    for (let platform = 0; platform < 3; platform++) {
+    for (let platform = 2; platform <= maxPlatforms; platform++) {
       obj[`P${platform}`] = "";
     }
+    // for (let platform = 0; platform < 3; platform++) {
+    //   obj[`P${platform}`] = "";
+    // }
     setTrainsArrivedAtPlatform(obj);
     updateSimulation();
   };
@@ -316,28 +324,53 @@ function Dashboard() {
   }, [earliestArrivalTime]);
 
   const updateSimulation = () => {
+    // console.log(
+    //   "last minute ",
+    //   getMinute(CSVData.data[CSVData.data.length - 1][2])
+    // );
     let occupiedPlatform = [0, 0, 0];
     let trainsArrivedAtPlatformLocal = {};
-    // for (let platform = 2; platform <= maxPlatforms; platform++) {
-    //   trainsArrivedAtPlatformLocal[`P${platform}`] = "";
-    // }
-    // for (let platform = 0; platform < maxPlatforms; platform++) {
-    for (let platform = 0; platform < 3; platform++) {
+
+    for (let platform = 0; platform < maxPlatforms; platform++) {
+      trainsArrivedAtPlatformLocal[`P${platform}`] = "";
+    }
+    for (let platform = 0; platform < maxPlatforms; platform++) {
+      // for (let platform = 0; platform < 3; platform++) {
       trainsArrivedAtPlatformLocal[`P${platform}`] = "";
     }
 
     let scheduledTrains = [];
     let trainsOnStation = Array(0).fill(null);
     // let platformArr = Array.from({ length: maxPlatforms }, (e, i) => i);
-    let platformArr = Array.from({ length: 3 }, (e, i) => i);
+    let platformArr = Array.from({ length: maxPlatforms }, (e, i) => i);
     // console.log("platform ARR = ", platformArr);
     let trains = CSVData.data.map((train) => new Train(...train));
 
     console.log("trains = ", trains);
-    let time = 970;
+    let time = getMinute(CSVData.data[0][1]);
+    console.log("initial time = ", time);
+    let currentTime = CSVData.data[0][1];
     let interval = setInterval(() => {
       // console.log("in interval, time = ", time);
       time += 10;
+      // let newTime = addMinutesToTime(newTime, 10);
+      let [hours, minutes] = currentTime.split(":").map(Number);
+
+      // Calculate the total minutes
+      let totalMinutes = hours * 60 + minutes + 10;
+
+      // Calculate the new hours and minutes
+      let newHours = Math.floor(totalMinutes / 60) % 24; // Use % 24 to handle overflow
+      let newMinutes = totalMinutes % 60;
+
+      // Pad single digit minutes with a leading zero
+      let newHoursStr = newHours.toString().padStart(2, "0");
+      let newMinutesStr = newMinutes.toString().padStart(2, "0");
+      // Return the new time in HH:MM format
+      currentTime = `${newHoursStr}:${newMinutesStr}`;
+      console.log("current time = ", currentTime);
+      setCurrentSimulationTime(currentTime);
+
       let newTrainsOnStation = Array(0);
       for (let i = 0; i < trainsOnStation.length; i++) {
         if (
@@ -397,7 +430,8 @@ function Dashboard() {
         ...trainsArrivedAtPlatformLocal,
         trainsArrivedAtPlatform,
       });
-      if (time > 1090) {
+      // if (time > getMinute(CSVData.data[CSVData.data.length - 1][2])) {
+      if (time > getMinute(CSVData.data[CSVData.data.length - 1][2])) {
         clearInterval(interval);
       }
     }, 1000);
@@ -457,8 +491,8 @@ function Dashboard() {
     setCSVData(dataOutput);
   };
 
-  // const lines = Array.from({ length: maxPlatforms - 1 }, (_, i) => i * 50);
-  const lines = Array.from({ length: 3 }, (_, i) => i * 50);
+  const lines = Array.from({ length: maxPlatforms - 1 }, (_, i) => i * 50);
+  // const lines = Array.from({ length: 3 }, (_, i) => i * 50);
 
   return (
     <>
@@ -604,7 +638,10 @@ function Dashboard() {
         <div id="simulation_card" className="card simulation-card">
           <section className="tab">
             {/* <div className="title">Simulation of {stationName}</div> */}
-            <div className="title">Simulation</div>
+            <div style={{ display: "flex", justifyContent: "space-between" }}>
+              <div className="title">Simulation</div>
+              <div>Time: {currentSimulationTime}</div>
+            </div>
             <div className="content">
               <section className="element">
                 <div
