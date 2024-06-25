@@ -60,7 +60,7 @@ const styles = {
   progressBar: {
     bottom: 14,
     position: "absolute",
-    width: "100%",
+    width: "84%",
     paddingLeft: 10,
     paddingRight: 10,
   },
