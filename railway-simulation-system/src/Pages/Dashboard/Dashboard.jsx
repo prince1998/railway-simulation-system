@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import Box from "@mui/material/Box";
 import TextField from "@mui/material/TextField";
-import { CSVLink, CSVDownload } from "react-csv";
+import { CSVLink } from "react-csv";
 
 import { motion } from "framer-motion";
 import UploadCSV from "../../components/UploadCSV/UploadCSV";
@@ -20,11 +20,8 @@ function Dashboard() {
   const [showSimulation, setShowSimulation] = useState("none");
   const [trainsArrivedAtPlatform, setTrainsArrivedAtPlatform] = useState({});
   const [CSVData, setCSVData] = useState({});
-  const [scheduledTrains, setScheduledTrains] = useState([]);
   const [trainNumberToUpdateDelay, setTrainNumberToUpdateDelay] = useState();
   const [trainsYetToArrive, setTrainsYetToArrive] = useState([]);
-  const [earliestArrivalTime, setEarliestArrivalTime] = useState("");
-  // const [stationName, setStationName] = useState("");
   const [currentSimulationTime, setCurrentSimulationTime] = useState("");
   const [delayTimeToUpdate, setDelayTimeToUpdate] = useState();
   const [trainsWaitingForPlatform, setTrainsWaitingForPlatform] = useState([]);
@@ -41,15 +38,9 @@ function Dashboard() {
     setDelayTimeToUpdate(e.target.value);
   };
 
-  // const handleStationName = (e) => {
-  //   setStationName(e.target.value);
-  // };
-
   const handlePlatformInput = (e) => {
     setMaxPlatforms(e.target.value);
   };
-
-  // const ref = useRef(3);
 
   const boxStyle = {
     position: "absolute",
@@ -132,10 +123,6 @@ function Dashboard() {
       this.platform = null; // Platform where the train stopped
     }
   }
-
-  useEffect(() => {
-    // console.log("earliest arrival time = ", earliestArrivalTime);
-  }, [earliestArrivalTime]);
 
   var trainHeap = [];
   const swap = (i, j) => {
@@ -251,9 +238,7 @@ function Dashboard() {
 
     setShowSimulation("block");
     let obj = {};
-    // for (let platform = 2; platform <= maxPlatforms; platform++) {
-    //   obj[`P${platform}`] = "";
-    // }
+
     for (let platform = 0; platform < maxPlatforms; platform++) {
       obj[`P${platform}`] = "";
     }
@@ -261,22 +246,10 @@ function Dashboard() {
     updateSimulation();
   };
 
-  useEffect(() => {
-    console.log("trains yet to arrive = ", trainsYetToArrive);
-  }, [trainsYetToArrive]);
-
-  useEffect(() => {
-    // console.log("earliest arrival time = ", earliestArrivalTime);
-  }, [earliestArrivalTime]);
-
   const updateSimulation = () => {
-    // console.log(
-    //   "last minute ",
-    //   getMinute(CSVData.data[CSVData.data.length - 1][2])
-    // );
-    let occupiedPlatform = [0, 0, 0];
     let trainsArrivedAtPlatformLocal = {};
     let trainsYetToArriveLocal = [];
+
     CSVData.data.map((element, i) => {
       trainsYetToArriveLocal.push(element[0]);
     });
@@ -284,14 +257,9 @@ function Dashboard() {
     for (let platform = 0; platform < maxPlatforms; platform++) {
       trainsArrivedAtPlatformLocal[`P${platform}`] = "";
     }
-    for (let platform = 0; platform < maxPlatforms; platform++) {
-      // for (let platform = 0; platform < 3; platform++) {
-      trainsArrivedAtPlatformLocal[`P${platform}`] = "";
-    }
 
     let scheduledTrains = [];
     let trainsOnStation = Array(0).fill(null);
-    // let platformArr = Array.from({ length: maxPlatforms }, (e, i) => i);
     let platformArr = Array.from({ length: maxPlatforms }, (e, i) => i);
     // console.log("platform ARR = ", platformArr);
     let trains = CSVData.data.map((train) => new Train(...train));
@@ -302,8 +270,60 @@ function Dashboard() {
     let currentTime = CSVData.data[0][1];
     let interval = setInterval(() => {
       // console.log("in interval, time = ", time);
+      let trainsWaitingForPlatformLocal = [];
+      let newTrainsOnStation = Array(0);
+      for (let i = 0; i < trainsOnStation.length; i++) {
+        if (
+          trainsOnStation[i] === null ||
+          getMinute(trainsOnStation[i].departure) > time
+        ) {
+          newTrainsOnStation.push(trainsOnStation[i]);
+        } else {
+          platformArr.unshift(trainsOnStation[i].platform - 1);
+          platformArr.sort();
+          trainsArrivedAtPlatformLocal[`P${trainsOnStation[i].platform - 1}`] =
+            "";
+          trainsWaitingForPlatformLocal = trainsWaitingForPlatformLocal.filter(
+            (train) => train != trainsArrivedAtPlatform[i].number
+          );
+          setTrainsWaitingForPlatform(trainsWaitingForPlatformLocal);
+        }
+      }
+      trainsOnStation = newTrainsOnStation;
 
+      // console.log("scheduled train = ", scheduledTrains);
+
+      // Schedule arriving trains or add them to the waiting list
+      while (trains.length > 0 && getMinute(trains[0].arrival) - 1 <= time) {
+        const arrivingTrain = trains.shift();
+        insert(arrivingTrain);
+      }
+      while (size() > 0 && trainsOnStation.length < maxPlatforms) {
+        const nextTrain = extractMin();
+        nextTrain.waitingTime += time - getMinute(nextTrain.arrival);
+        console.log("next train waiting time = ", nextTrain.waitingTime);
+        if (nextTrain.waitingTime > 0) {
+          trainsWaitingForPlatformLocal.push(nextTrain.number);
+        }
+        nextTrain.platform = platformArr.shift() + 1; // Assign platform number
+        setTrainsWaitingForPlatform(trainsWaitingForPlatformLocal);
+
+        trainsOnStation.push(nextTrain);
+        scheduledTrains.push(nextTrain);
+        trainsArrivedAtPlatformLocal[`P${nextTrain.platform - 1}`] =
+          nextTrain.number;
+
+        trainsYetToArriveLocal = trainsYetToArriveLocal.filter(
+          (item) => item != nextTrain.number
+        );
+        console.log("next train number = ", nextTrain.number);
+        console.log("trains yet to arrive local = ", trainsYetToArriveLocal);
+        setTrainsYetToArrive([...trainsYetToArriveLocal]);
+      }
+      console.log("train arrived at platform = ", trainsArrivedAtPlatformLocal);
       // let newTime = addMinutesToTime(newTime, 10);
+      setTrainsArrivedAtPlatform({ ...trainsArrivedAtPlatformLocal });
+
       let [hours, minutes] = currentTime.split(":").map(Number);
 
       // Calculate the total minutes
@@ -320,87 +340,14 @@ function Dashboard() {
       currentTime = `${newHoursStr}:${newMinutesStr}`;
       console.log("current time = ", currentTime);
       setCurrentSimulationTime(currentTime);
-
-      let newTrainsOnStation = Array(0);
-      let trainsWaitingForPlatformLocal = [];
-      for (let i = 0; i < trainsOnStation.length; i++) {
-        if (
-          trainsOnStation[i] === null ||
-          trainsOnStation[i].departure > time
-        ) {
-          newTrainsOnStation.push(trainsOnStation[i]);
-        } else {
-          platformArr.unshift(trainsOnStation[i].platform - 1);
-          platformArr.sort();
-          trainsArrivedAtPlatformLocal[`P${trainsOnStation[i].platform - 1}`] =
-            trainsOnStation.number;
-          occupiedPlatform[trainsOnStation[i].platform - 1] = 0;
-          trainsWaitingForPlatformLocal = trainsWaitingForPlatformLocal.filter(
-            (train) => train != trainsArrivedAtPlatform[i].number
-          );
-          setTrainsWaitingForPlatform(trainsWaitingForPlatformLocal);
-        }
-      }
-      trainsOnStation = newTrainsOnStation;
-      while (size() > 0 && trainsOnStation.length < maxPlatforms) {
-        const nextTrain = extractMin();
-        nextTrain.waitingTime += time - getMinute(nextTrain.arrival);
-        console.log("next train waiting time = ", nextTrain.waitingTime);
-        if (nextTrain.waitingTime > 0) {
-          trainsWaitingForPlatformLocal.push(nextTrain.number);
-        }
-        nextTrain.platform = platformArr.shift() + 1; // Assign platform number
-        setTrainsWaitingForPlatform(trainsWaitingForPlatformLocal);
-
-        trainsOnStation.push(nextTrain);
-        scheduledTrains.push(nextTrain);
-        trainsArrivedAtPlatformLocal[`P${nextTrain.platform - 1}`] =
-          nextTrain.number;
-        occupiedPlatform[nextTrain.platform - 1] = 1;
-
-        trainsYetToArriveLocal = trainsYetToArriveLocal.filter(
-          (item) => item != nextTrain.number
-        );
-        console.log("next train number = ", nextTrain.number);
-        console.log("trains yet to arrive local = ", trainsYetToArriveLocal);
-        setTrainsYetToArrive([...trainsYetToArriveLocal]);
-      }
-      // console.log("scheduled train = ", scheduledTrains);
-
-      // Schedule arriving trains or add them to the waiting list
-      while (trains.length > 0 && getMinute(trains[0].arrival) - 1 <= time) {
-        // while (trains.length > 0 && trains[0].arrival - 1 <= time) {
-        const arrivingTrain = trains.shift();
-        insert(arrivingTrain);
-      }
-      console.log("train arrived at platform = ", trainsArrivedAtPlatformLocal);
-
-      console.log(
-        "after while loop time = ",
-        time,
-        " occupied platforms = ",
-        occupiedPlatform
-      );
-      setTrainsArrivedAtPlatform({
-        ...trainsArrivedAtPlatformLocal,
-        trainsArrivedAtPlatform,
-      });
       time += 10;
-      // if (time > getMinute(CSVData.data[CSVData.data.length - 1][2])) {
-      if (time > getMinute(CSVData.data[CSVData.data.length - 1][2]) + 10) {
+
+      if (time > getMinute(CSVData.data[CSVData.data.length - 1][2])) {
         clearInterval(interval);
       }
     }, 2000);
     // console.log("scheduled trains = ", scheduledTrains);
   };
-
-  useEffect(() => {
-    // console.log("scheduled train");
-  }, [scheduledTrains]);
-
-  useEffect(() => {
-    // console.log("trains arrived at platform = ", trainsArrivedAtPlatform);
-  }, [trainsArrivedAtPlatform]);
 
   const stopSimulation = () => {
     setShowSimulation("none");
@@ -417,17 +364,12 @@ function Dashboard() {
     handleUpdateDelayModalClose();
   };
 
-  useEffect(() => {
-    console.log("CSV Data = ", CSVData);
-  }, [CSVData]);
-
   const handleCSVData = (dataOutput) => {
     dataOutput.data.splice(0, 1);
     setCSVData(dataOutput);
   };
 
   const lines = Array.from({ length: maxPlatforms }, (_, i) => i * 50);
-  // const lines = Array.from({ length: 3 }, (_, i) => i * 50);
 
   return (
     <>
@@ -511,18 +453,6 @@ function Dashboard() {
               <section className="element">
                 <UploadCSV sendCSVDataToParent={handleCSVData} />
               </section>
-              {/* 
-              <div className="title" style={{ marginTop: "20px" }}>
-                Enter Station Name
-              </div> */}
-
-              {/* <TextField
-                className="title"
-                id="standard-basic"
-                variant="standard"
-                onChange={handleStationName}
-                sx={{ input: { color: "white" } }}
-              /> */}
 
               <div className="title" style={{ marginTop: "20px" }}>
                 Enter number of platforms between 2 and 20
