@@ -134,7 +134,7 @@ function Dashboard() {
       this.number = number;
       this.arrival = arrival;
       this.departure = departure;
-      this.priority = priority[1];
+      this.priority = priority;
       this.waitingTime = 0; // Time spent waiting for a platform
 
       this.platform = null; // Platform where the train stopped
